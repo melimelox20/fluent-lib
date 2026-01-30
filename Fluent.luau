@@ -1555,7 +1555,7 @@ return function(Config)
 	-- Logo ImageLabel
 	TitleBar.Logo = New("ImageLabel", {
 		Size = UDim2.fromOffset(32, 32),
-		Position = UDim2.fromOffset(12, 5),
+		Position = UDim2.fromOffset(20, 5),
 		BackgroundTransparency = 1,
 		Image = GetAsset("https://raw.githubusercontent.com/melimelox20/fluent-lib/main/Logo.png"), -- Replace with URL or ID
 		ScaleType = Enum.ScaleType.Fit,
@@ -64457,74 +64457,18 @@ end)() end,
 	},
 }
 end)() end,
-    [85] = function()local wax,script,require=ImportGlobals(85)local ImportGlobals return (function(...)local BaseMotor = require(script.Parent.BaseMotor)
+    [74] = function()local wax,script,require=ImportGlobals(74)local ImportGlobals return (function(...)local Flipper = {
+	SingleMotor = require(script.SingleMotor),
+	GroupMotor = require(script.GroupMotor),
 
-local SingleMotor = setmetatable({}, BaseMotor)
-SingleMotor.__index = SingleMotor
+	Instant = require(script.Instant),
+	Linear = require(script.Linear),
+	Spring = require(script.Spring),
+	
+	isMotor = require(script.isMotor),
+}
 
-function SingleMotor.new(initialValue, useImplicitConnections)
-	assert(initialValue, "Missing argument #1: initialValue")
-	assert(typeof(initialValue) == "number", "initialValue must be a number!")
-
-	local self = setmetatable(BaseMotor.new(), SingleMotor)
-
-	if useImplicitConnections ~= nil then
-		self._useImplicitConnections = useImplicitConnections
-	else
-		self._useImplicitConnections = true
-	end
-
-	self._goal = nil
-	self._state = {
-		complete = true,
-		value = initialValue,
-	}
-
-	return self
-end
-
-function SingleMotor:step(deltaTime)
-	if self._state.complete then
-		return true
-	end
-
-	local newState = self._goal:step(self._state, deltaTime)
-
-	self._state = newState
-	self._onStep:fire(newState.value)
-
-	if newState.complete then
-		if self._useImplicitConnections then
-			self:stop()
-		end
-
-		self._onComplete:fire()
-	end
-
-	return newState.complete
-end
-
-function SingleMotor:getValue()
-	return self._state.value
-end
-
-function SingleMotor:setGoal(goal)
-	self._state.complete = false
-	self._goal = goal
-
-	self._onStart:fire()
-
-	if self._useImplicitConnections then
-		self:start()
-	end
-end
-
-function SingleMotor:__tostring()
-	return "Motor(Single)"
-end
-
-return SingleMotor
-
+return Flipper
 end)() end,
     [75] = function()local wax,script,require=ImportGlobals(75)local ImportGlobals return (function(...)local RunService = game:GetService("RunService")
 
@@ -64583,159 +64527,46 @@ end
 return BaseMotor
 
 end)() end,
-    [90] = function()local wax,script,require=ImportGlobals(90)local ImportGlobals return (function(...)return function()
-	local isMotor = require(script.Parent.isMotor)
+    [76] = function()local wax,script,require=ImportGlobals(76)local ImportGlobals return (function(...)return function()
+	local RunService = game:GetService("RunService")
 
-	local SingleMotor = require(script.Parent.SingleMotor)
-	local GroupMotor = require(script.Parent.GroupMotor)
+	local BaseMotor = require(script.Parent.BaseMotor)
 
-	local singleMotor = SingleMotor.new(0)
-	local groupMotor = GroupMotor.new({})
+	describe("connection management", function()
+		local motor = BaseMotor.new()
 
-	it("should properly detect motors", function()
-		expect(isMotor(singleMotor)).to.equal(true)
-		expect(isMotor(groupMotor)).to.equal(true)
-	end)
-
-	it("shouldn't detect things that aren't motors", function()
-		expect(isMotor({})).to.equal(false)
-	end)
-
-	it("should return the proper motor type", function()
-		local _, singleMotorType = isMotor(singleMotor)
-		local _, groupMotorType = isMotor(groupMotor)
-
-		expect(singleMotorType).to.equal("Single")
-		expect(groupMotorType).to.equal("Group")
-	end)
-end
-end)() end,
-    [84] = function()local wax,script,require=ImportGlobals(84)local ImportGlobals return (function(...)return function()
-	local Signal = require(script.Parent.Signal)
-
-	it("should invoke all connections, instantly", function()
-		local signal = Signal.new()
-
-		local a, b
-
-		signal:connect(function(value)
-			a = value
+		it("should hook up connections on :start()", function()
+			motor:start()
+			expect(typeof(motor._connection)).to.equal("RBXScriptConnection")
 		end)
 
-		signal:connect(function(value)
-			b = value
+		it("should remove connections on :stop() or :destroy()", function()
+			motor:stop()
+			expect(motor._connection).to.equal(nil)
 		end)
-
-		signal:fire("hello")
-
-		expect(a).to.equal("hello")
-		expect(b).to.equal("hello")
 	end)
 
-	it("should return values when :wait() is called", function()
-		local signal = Signal.new()
+	it("should call :step() with deltaTime", function()
+		local motor = BaseMotor.new()
 
-		spawn(function()
-			signal:fire(123, "hello")
-		end)
-
-		local a, b = signal:wait()
-		
-		expect(a).to.equal(123)
-		expect(b).to.equal("hello")
-	end)
-
-	it("should properly handle disconnections", function()
-		local signal = Signal.new()
-
-		local didRun = false
-
-		local connection = signal:connect(function()
-			didRun = true
-		end)
-		connection:disconnect()
-
-		signal:fire()
-		expect(didRun).to.equal(false)
-	end)
-end
-end)() end,
-    [83] = function()local wax,script,require=ImportGlobals(83)local ImportGlobals return (function(...)local Connection = {}
-Connection.__index = Connection
-
-function Connection.new(signal, handler)
-	return setmetatable({
-		signal = signal,
-		connected = true,
-		_handler = handler,
-	}, Connection)
-end
-
-function Connection:disconnect()
-	if self.connected then
-		self.connected = false
-
-		for index, connection in pairs(self.signal._connections) do
-			if connection == self then
-				table.remove(self.signal._connections, index)
-				return
-			end
+		local argumentsProvided
+		function motor:step(...)
+			argumentsProvided = { ... }
+			motor:stop()
 		end
-	end
+
+		motor:start()
+		
+		local expectedDeltaTime = RunService.RenderStepped:Wait()
+
+		-- Give it another frame, because connections tend to be invoked later than :Wait() calls
+		RunService.RenderStepped:Wait()
+
+		expect(argumentsProvided).to.be.ok()
+		expect(argumentsProvided[1]).to.equal(expectedDeltaTime)
+	end)
 end
 
-local Signal = {}
-Signal.__index = Signal
-
-function Signal.new()
-	return setmetatable({
-		_connections = {},
-		_threads = {},
-	}, Signal)
-end
-
-function Signal:fire(...)
-	for _, connection in pairs(self._connections) do
-		connection._handler(...)
-	end
-
-	for _, thread in pairs(self._threads) do
-		coroutine.resume(thread, ...)
-	end
-	
-	self._threads = {}
-end
-
-function Signal:connect(handler)
-	local connection = Connection.new(self, handler)
-	table.insert(self._connections, connection)
-	return connection
-end
-
-function Signal:wait()
-	table.insert(self._threads, coroutine.running())
-	return coroutine.yield()
-end
-
-return Signal
-end)() end,
-    [79] = function()local wax,script,require=ImportGlobals(79)local ImportGlobals return (function(...)local Instant = {}
-Instant.__index = Instant
-
-function Instant.new(targetValue)
-	return setmetatable({
-		_targetValue = targetValue,
-	}, Instant)
-end
-
-function Instant:step()
-	return {
-		complete = true,
-		value = self._targetValue,
-	}
-end
-
-return Instant
 end)() end,
     [77] = function()local wax,script,require=ImportGlobals(77)local ImportGlobals return (function(...)local BaseMotor = require(script.Parent.BaseMotor)
 local SingleMotor = require(script.Parent.SingleMotor)
@@ -64846,30 +64677,6 @@ end
 return GroupMotor
 
 end)() end,
-    [80] = function()local wax,script,require=ImportGlobals(80)local ImportGlobals return (function(...)return function()
-	local Instant = require(script.Parent.Instant)
-
-	it("should return a completed state with the provided value", function()
-		local goal = Instant.new(1.23)
-		local state = goal:step(0.1, { value = 0, complete = false })
-		expect(state.complete).to.equal(true)
-		expect(state.value).to.equal(1.23)
-	end)
-end
-end)() end,
-    [74] = function()local wax,script,require=ImportGlobals(74)local ImportGlobals return (function(...)local Flipper = {
-	SingleMotor = require(script.SingleMotor),
-	GroupMotor = require(script.GroupMotor),
-
-	Instant = require(script.Instant),
-	Linear = require(script.Linear),
-	Spring = require(script.Spring),
-	
-	isMotor = require(script.isMotor),
-}
-
-return Flipper
-end)() end,
     [78] = function()local wax,script,require=ImportGlobals(78)local ImportGlobals return (function(...)return function()
 	local GroupMotor = require(script.Parent.GroupMotor)
 
@@ -64955,6 +64762,35 @@ end)() end,
 end
 
 end)() end,
+    [79] = function()local wax,script,require=ImportGlobals(79)local ImportGlobals return (function(...)local Instant = {}
+Instant.__index = Instant
+
+function Instant.new(targetValue)
+	return setmetatable({
+		_targetValue = targetValue,
+	}, Instant)
+end
+
+function Instant:step()
+	return {
+		complete = true,
+		value = self._targetValue,
+	}
+end
+
+return Instant
+end)() end,
+    [80] = function()local wax,script,require=ImportGlobals(80)local ImportGlobals return (function(...)return function()
+	local Instant = require(script.Parent.Instant)
+
+	it("should return a completed state with the provided value", function()
+		local goal = Instant.new(1.23)
+		local state = goal:step(0.1, { value = 0, complete = false })
+		expect(state.complete).to.equal(true)
+		expect(state.value).to.equal(1.23)
+	end)
+end
+end)() end,
     [81] = function()local wax,script,require=ImportGlobals(81)local ImportGlobals return (function(...)local Linear = {}
 Linear.__index = Linear
 
@@ -64992,17 +64828,17 @@ end
 
 return Linear
 end)() end,
-    [88] = function()local wax,script,require=ImportGlobals(88)local ImportGlobals return (function(...)return function()
+    [82] = function()local wax,script,require=ImportGlobals(82)local ImportGlobals return (function(...)return function()
 	local SingleMotor = require(script.Parent.SingleMotor)
-	local Spring = require(script.Parent.Spring)
+	local Linear = require(script.Parent.Linear)
 
 	describe("completed state", function()
 		local motor = SingleMotor.new(0, false)
 
-		local goal = Spring.new(1, { frequency = 2, dampingRatio = 0.75 })
+		local goal = Linear.new(1, { velocity = 1 })
 		motor:setGoal(goal)
 	
-		for _ = 1, 100 do
+		for _ = 1, 60 do
 			motor:step(1/60)
 		end
 		
@@ -65015,30 +64851,265 @@ end)() end,
 		end)
 	end)
 
-	it("should inherit velocity", function()
+	describe("uncompleted state", function()
 		local motor = SingleMotor.new(0, false)
-		motor._state = { complete = false, value = 0, velocity = -5 }
 
-		local goal = Spring.new(1, { frequency = 2, dampingRatio = 1 })
-
+		local goal = Linear.new(1, { velocity = 1 })
 		motor:setGoal(goal)
-		motor:step(1/60)
+	
+		for _ = 1, 59 do
+			motor:step(1/60)
+		end
+		
+		it("should be uncomplete", function()
+			expect(motor._state.complete).to.equal(false)
+		end)
+	end)
 
-		expect(motor._state.velocity < 0).to.equal(true)
+	describe("negative velocity", function()
+		local motor = SingleMotor.new(1, false)
+
+		local goal = Linear.new(0, { velocity = 1 })
+		motor:setGoal(goal)
+		
+		for _ = 1, 60 do
+			motor:step(1/60)
+		end
+		
+		it("should complete", function()
+			expect(motor._state.complete).to.equal(true)
+		end)
+
+		it("should be exactly the goal value when completed", function()
+			expect(motor._state.value).to.equal(0)
+		end)
 	end)
 end
 end)() end,
-    [89] = function()local wax,script,require=ImportGlobals(89)local ImportGlobals return (function(...)local function isMotor(value)
-	local motorType = tostring(value):match("^Motor%((.+)%)$")
+    [83] = function()local wax,script,require=ImportGlobals(83)local ImportGlobals return (function(...)local Connection = {}
+Connection.__index = Connection
 
-	if motorType then
-		return true, motorType
-	else
-		return false
+function Connection.new(signal, handler)
+	return setmetatable({
+		signal = signal,
+		connected = true,
+		_handler = handler,
+	}, Connection)
+end
+
+function Connection:disconnect()
+	if self.connected then
+		self.connected = false
+
+		for index, connection in pairs(self.signal._connections) do
+			if connection == self then
+				table.remove(self.signal._connections, index)
+				return
+			end
+		end
 	end
 end
 
-return isMotor
+local Signal = {}
+Signal.__index = Signal
+
+function Signal.new()
+	return setmetatable({
+		_connections = {},
+		_threads = {},
+	}, Signal)
+end
+
+function Signal:fire(...)
+	for _, connection in pairs(self._connections) do
+		connection._handler(...)
+	end
+
+	for _, thread in pairs(self._threads) do
+		coroutine.resume(thread, ...)
+	end
+	
+	self._threads = {}
+end
+
+function Signal:connect(handler)
+	local connection = Connection.new(self, handler)
+	table.insert(self._connections, connection)
+	return connection
+end
+
+function Signal:wait()
+	table.insert(self._threads, coroutine.running())
+	return coroutine.yield()
+end
+
+return Signal
+end)() end,
+    [84] = function()local wax,script,require=ImportGlobals(84)local ImportGlobals return (function(...)return function()
+	local Signal = require(script.Parent.Signal)
+
+	it("should invoke all connections, instantly", function()
+		local signal = Signal.new()
+
+		local a, b
+
+		signal:connect(function(value)
+			a = value
+		end)
+
+		signal:connect(function(value)
+			b = value
+		end)
+
+		signal:fire("hello")
+
+		expect(a).to.equal("hello")
+		expect(b).to.equal("hello")
+	end)
+
+	it("should return values when :wait() is called", function()
+		local signal = Signal.new()
+
+		spawn(function()
+			signal:fire(123, "hello")
+		end)
+
+		local a, b = signal:wait()
+		
+		expect(a).to.equal(123)
+		expect(b).to.equal("hello")
+	end)
+
+	it("should properly handle disconnections", function()
+		local signal = Signal.new()
+
+		local didRun = false
+
+		local connection = signal:connect(function()
+			didRun = true
+		end)
+		connection:disconnect()
+
+		signal:fire()
+		expect(didRun).to.equal(false)
+	end)
+end
+end)() end,
+    [85] = function()local wax,script,require=ImportGlobals(85)local ImportGlobals return (function(...)local BaseMotor = require(script.Parent.BaseMotor)
+
+local SingleMotor = setmetatable({}, BaseMotor)
+SingleMotor.__index = SingleMotor
+
+function SingleMotor.new(initialValue, useImplicitConnections)
+	assert(initialValue, "Missing argument #1: initialValue")
+	assert(typeof(initialValue) == "number", "initialValue must be a number!")
+
+	local self = setmetatable(BaseMotor.new(), SingleMotor)
+
+	if useImplicitConnections ~= nil then
+		self._useImplicitConnections = useImplicitConnections
+	else
+		self._useImplicitConnections = true
+	end
+
+	self._goal = nil
+	self._state = {
+		complete = true,
+		value = initialValue,
+	}
+
+	return self
+end
+
+function SingleMotor:step(deltaTime)
+	if self._state.complete then
+		return true
+	end
+
+	local newState = self._goal:step(self._state, deltaTime)
+
+	self._state = newState
+	self._onStep:fire(newState.value)
+
+	if newState.complete then
+		if self._useImplicitConnections then
+			self:stop()
+		end
+
+		self._onComplete:fire()
+	end
+
+	return newState.complete
+end
+
+function SingleMotor:getValue()
+	return self._state.value
+end
+
+function SingleMotor:setGoal(goal)
+	self._state.complete = false
+	self._goal = goal
+
+	self._onStart:fire()
+
+	if self._useImplicitConnections then
+		self:start()
+	end
+end
+
+function SingleMotor:__tostring()
+	return "Motor(Single)"
+end
+
+return SingleMotor
+
+end)() end,
+    [86] = function()local wax,script,require=ImportGlobals(86)local ImportGlobals return (function(...)return function()
+	local SingleMotor = require(script.Parent.SingleMotor)
+	local Instant = require(script.Parent.Instant)
+
+	it("should assign new state on step", function()
+		local motor = SingleMotor.new(0, false)
+
+		motor:setGoal(Instant.new(5))
+		motor:step(1/60)
+
+		expect(motor._state.complete).to.equal(true)
+		expect(motor._state.value).to.equal(5)
+	end)
+
+	it("should invoke onComplete listeners when the goal is completed", function()
+		local motor = SingleMotor.new(0, false)
+
+		local didComplete = false
+		motor:onComplete(function()
+			didComplete = true
+		end)
+
+		motor:setGoal(Instant.new(5))
+		motor:step(1/60)
+
+		expect(didComplete).to.equal(true)
+	end)
+
+	it("should start when the goal is set", function()
+		local motor = SingleMotor.new(0, false)
+
+		local bool = false
+		motor:onStart(function()
+			bool = not bool
+		end)
+
+		motor:setGoal(Instant.new(5))
+
+		expect(bool).to.equal(true)
+
+		motor:setGoal(Instant.new(5))
+
+		expect(bool).to.equal(false)
+	end)
+end
+
 end)() end,
     [87] = function()local wax,script,require=ImportGlobals(87)local ImportGlobals return (function(...)local VELOCITY_THRESHOLD = 0.001
 local POSITION_THRESHOLD = 0.001
@@ -65149,105 +65220,17 @@ end
 
 return Spring
 end)() end,
-    [86] = function()local wax,script,require=ImportGlobals(86)local ImportGlobals return (function(...)return function()
+    [88] = function()local wax,script,require=ImportGlobals(88)local ImportGlobals return (function(...)return function()
 	local SingleMotor = require(script.Parent.SingleMotor)
-	local Instant = require(script.Parent.Instant)
-
-	it("should assign new state on step", function()
-		local motor = SingleMotor.new(0, false)
-
-		motor:setGoal(Instant.new(5))
-		motor:step(1/60)
-
-		expect(motor._state.complete).to.equal(true)
-		expect(motor._state.value).to.equal(5)
-	end)
-
-	it("should invoke onComplete listeners when the goal is completed", function()
-		local motor = SingleMotor.new(0, false)
-
-		local didComplete = false
-		motor:onComplete(function()
-			didComplete = true
-		end)
-
-		motor:setGoal(Instant.new(5))
-		motor:step(1/60)
-
-		expect(didComplete).to.equal(true)
-	end)
-
-	it("should start when the goal is set", function()
-		local motor = SingleMotor.new(0, false)
-
-		local bool = false
-		motor:onStart(function()
-			bool = not bool
-		end)
-
-		motor:setGoal(Instant.new(5))
-
-		expect(bool).to.equal(true)
-
-		motor:setGoal(Instant.new(5))
-
-		expect(bool).to.equal(false)
-	end)
-end
-
-end)() end,
-    [76] = function()local wax,script,require=ImportGlobals(76)local ImportGlobals return (function(...)return function()
-	local RunService = game:GetService("RunService")
-
-	local BaseMotor = require(script.Parent.BaseMotor)
-
-	describe("connection management", function()
-		local motor = BaseMotor.new()
-
-		it("should hook up connections on :start()", function()
-			motor:start()
-			expect(typeof(motor._connection)).to.equal("RBXScriptConnection")
-		end)
-
-		it("should remove connections on :stop() or :destroy()", function()
-			motor:stop()
-			expect(motor._connection).to.equal(nil)
-		end)
-	end)
-
-	it("should call :step() with deltaTime", function()
-		local motor = BaseMotor.new()
-
-		local argumentsProvided
-		function motor:step(...)
-			argumentsProvided = { ... }
-			motor:stop()
-		end
-
-		motor:start()
-		
-		local expectedDeltaTime = RunService.RenderStepped:Wait()
-
-		-- Give it another frame, because connections tend to be invoked later than :Wait() calls
-		RunService.RenderStepped:Wait()
-
-		expect(argumentsProvided).to.be.ok()
-		expect(argumentsProvided[1]).to.equal(expectedDeltaTime)
-	end)
-end
-
-end)() end,
-    [82] = function()local wax,script,require=ImportGlobals(82)local ImportGlobals return (function(...)return function()
-	local SingleMotor = require(script.Parent.SingleMotor)
-	local Linear = require(script.Parent.Linear)
+	local Spring = require(script.Parent.Spring)
 
 	describe("completed state", function()
 		local motor = SingleMotor.new(0, false)
 
-		local goal = Linear.new(1, { velocity = 1 })
+		local goal = Spring.new(1, { frequency = 2, dampingRatio = 0.75 })
 		motor:setGoal(goal)
 	
-		for _ = 1, 60 do
+		for _ = 1, 100 do
 			motor:step(1/60)
 		end
 		
@@ -65260,38 +65243,55 @@ end)() end,
 		end)
 	end)
 
-	describe("uncompleted state", function()
+	it("should inherit velocity", function()
 		local motor = SingleMotor.new(0, false)
+		motor._state = { complete = false, value = 0, velocity = -5 }
 
-		local goal = Linear.new(1, { velocity = 1 })
+		local goal = Spring.new(1, { frequency = 2, dampingRatio = 1 })
+
 		motor:setGoal(goal)
-	
-		for _ = 1, 59 do
-			motor:step(1/60)
-		end
-		
-		it("should be uncomplete", function()
-			expect(motor._state.complete).to.equal(false)
-		end)
+		motor:step(1/60)
+
+		expect(motor._state.velocity < 0).to.equal(true)
+	end)
+end
+end)() end,
+    [89] = function()local wax,script,require=ImportGlobals(89)local ImportGlobals return (function(...)local function isMotor(value)
+	local motorType = tostring(value):match("^Motor%((.+)%)$")
+
+	if motorType then
+		return true, motorType
+	else
+		return false
+	end
+end
+
+return isMotor
+end)() end,
+    [90] = function()local wax,script,require=ImportGlobals(90)local ImportGlobals return (function(...)return function()
+	local isMotor = require(script.Parent.isMotor)
+
+	local SingleMotor = require(script.Parent.SingleMotor)
+	local GroupMotor = require(script.Parent.GroupMotor)
+
+	local singleMotor = SingleMotor.new(0)
+	local groupMotor = GroupMotor.new({})
+
+	it("should properly detect motors", function()
+		expect(isMotor(singleMotor)).to.equal(true)
+		expect(isMotor(groupMotor)).to.equal(true)
 	end)
 
-	describe("negative velocity", function()
-		local motor = SingleMotor.new(1, false)
+	it("shouldn't detect things that aren't motors", function()
+		expect(isMotor({})).to.equal(false)
+	end)
 
-		local goal = Linear.new(0, { velocity = 1 })
-		motor:setGoal(goal)
-		
-		for _ = 1, 60 do
-			motor:step(1/60)
-		end
-		
-		it("should complete", function()
-			expect(motor._state.complete).to.equal(true)
-		end)
+	it("should return the proper motor type", function()
+		local _, singleMotorType = isMotor(singleMotor)
+		local _, groupMotorType = isMotor(groupMotor)
 
-		it("should be exactly the goal value when completed", function()
-			expect(motor._state.value).to.equal(0)
-		end)
+		expect(singleMotorType).to.equal("Single")
+		expect(groupMotorType).to.equal("Group")
 	end)
 end
 end)() end
@@ -65307,126 +65307,45 @@ local ObjectTree = {
         },
         {
             {
-                22,
-                1,
-                {
-                    "Modules"
-                },
-                {
-                    {
-                        29,
-                        2,
-                        {
-                            "Icons"
-                        }
-                    },
-                    {
-                        28,
-                        2,
-                        {
-                            "Creator"
-                        }
-                    },
-                    {
-                        23,
-                        2,
-                        {
-                            "Acrylic"
-                        },
-                        {
-                            {
-                                24,
-                                2,
-                                {
-                                    "AcrylicBlur"
-                                }
-                            },
-                            {
-                                27,
-                                2,
-                                {
-                                    "Utils"
-                                }
-                            },
-                            {
-                                26,
-                                2,
-                                {
-                                    "CreateAcrylic"
-                                }
-                            },
-                            {
-                                25,
-                                2,
-                                {
-                                    "AcrylicPaint"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            {
-                13,
+                30,
                 2,
                 {
-                    "Elements"
+                    "Themes"
                 },
                 {
                     {
-                        18,
+                        35,
                         2,
                         {
-                            "Keybind"
+                            "VSC Red"
                         }
                     },
                     {
-                        21,
+                        31,
                         2,
                         {
-                            "Toggle"
+                            "Amethyst"
                         }
                     },
                     {
-                        17,
+                        34,
                         2,
                         {
-                            "Input"
+                            "Light"
                         }
                     },
                     {
-                        14,
+                        32,
                         2,
                         {
-                            "Button"
+                            "Aqua"
                         }
                     },
                     {
-                        16,
+                        33,
                         2,
                         {
-                            "Dropdown"
-                        }
-                    },
-                    {
-                        20,
-                        2,
-                        {
-                            "Slider"
-                        }
-                    },
-                    {
-                        15,
-                        2,
-                        {
-                            "Colorpicker"
-                        }
-                    },
-                    {
-                        19,
-                        2,
-                        {
-                            "Paragraph"
+                            "Dark"
                         }
                     }
                 }
@@ -65439,19 +65358,65 @@ local ObjectTree = {
                 },
                 {
                     {
-                        38,
-                        2,
-                        {
-                            "Ripple"
-                        }
-                    },
-                    {
                         40,
                         1,
                         {
                             "_Index"
                         },
                         {
+                            {
+                                66,
+                                1,
+                                {
+                                    "lucasmzreal_fastsignal@10.4.0"
+                                },
+                                {
+                                    {
+                                        67,
+                                        2,
+                                        {
+                                            "fastsignal"
+                                        },
+                                        {
+                                            {
+                                                68,
+                                                2,
+                                                {
+                                                    "Deferred"
+                                                }
+                                            },
+                                            {
+                                                69,
+                                                2,
+                                                {
+                                                    "Docs"
+                                                }
+                                            },
+                                            {
+                                                72,
+                                                2,
+                                                {
+                                                    "wally"
+                                                }
+                                            },
+                                            {
+                                                71,
+                                                2,
+                                                {
+                                                    "Readme"
+                                                }
+                                            },
+                                            {
+                                                70,
+                                                2,
+                                                {
+                                                    "Immediate"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
                             {
                                 44,
                                 1,
@@ -65460,12 +65425,70 @@ local ObjectTree = {
                                 },
                                 {
                                     {
+                                        45,
+                                        2,
+                                        {
+                                            "Promise"
+                                        }
+                                    },
+                                    {
                                         46,
                                         2,
                                         {
                                             "ripple"
                                         },
                                         {
+                                            {
+                                                47,
+                                                2,
+                                                {
+                                                    "config"
+                                                }
+                                            },
+                                            {
+                                                60,
+                                                1,
+                                                {
+                                                    "utils"
+                                                },
+                                                {
+                                                    {
+                                                        65,
+                                                        2,
+                                                        {
+                                                            "spy"
+                                                        }
+                                                    },
+                                                    {
+                                                        63,
+                                                        2,
+                                                        {
+                                                            "merge"
+                                                        }
+                                                    },
+                                                    {
+                                                        62,
+                                                        2,
+                                                        {
+                                                            "intermediate"
+                                                        }
+                                                    },
+                                                    {
+                                                        64,
+                                                        2,
+                                                        {
+                                                            "snapshot"
+                                                        }
+                                                    },
+                                                    {
+                                                        61,
+                                                        2,
+                                                        {
+                                                            "assign"
+                                                        }
+                                                    }
+                                                }
+                                            },
                                             {
                                                 50,
                                                 1,
@@ -65474,10 +65497,31 @@ local ObjectTree = {
                                                 },
                                                 {
                                                     {
+                                                        53,
+                                                        2,
+                                                        {
+                                                            "linear"
+                                                        }
+                                                    },
+                                                    {
                                                         56,
                                                         2,
                                                         {
                                                             "spring.spec"
+                                                        }
+                                                    },
+                                                    {
+                                                        51,
+                                                        2,
+                                                        {
+                                                            "immediate"
+                                                        }
+                                                    },
+                                                    {
+                                                        57,
+                                                        2,
+                                                        {
+                                                            "tween"
                                                         }
                                                     },
                                                     {
@@ -65495,31 +65539,10 @@ local ObjectTree = {
                                                         }
                                                     },
                                                     {
-                                                        57,
-                                                        2,
-                                                        {
-                                                            "tween"
-                                                        }
-                                                    },
-                                                    {
-                                                        53,
-                                                        2,
-                                                        {
-                                                            "linear"
-                                                        }
-                                                    },
-                                                    {
                                                         52,
                                                         2,
                                                         {
                                                             "immediate.spec"
-                                                        }
-                                                    },
-                                                    {
-                                                        51,
-                                                        2,
-                                                        {
-                                                            "immediate"
                                                         }
                                                     },
                                                     {
@@ -65532,68 +65555,10 @@ local ObjectTree = {
                                                 }
                                             },
                                             {
-                                                60,
-                                                1,
-                                                {
-                                                    "utils"
-                                                },
-                                                {
-                                                    {
-                                                        62,
-                                                        2,
-                                                        {
-                                                            "intermediate"
-                                                        }
-                                                    },
-                                                    {
-                                                        63,
-                                                        2,
-                                                        {
-                                                            "merge"
-                                                        }
-                                                    },
-                                                    {
-                                                        64,
-                                                        2,
-                                                        {
-                                                            "snapshot"
-                                                        }
-                                                    },
-                                                    {
-                                                        65,
-                                                        2,
-                                                        {
-                                                            "spy"
-                                                        }
-                                                    },
-                                                    {
-                                                        61,
-                                                        2,
-                                                        {
-                                                            "assign"
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            {
-                                                47,
-                                                2,
-                                                {
-                                                    "config"
-                                                }
-                                            },
-                                            {
                                                 59,
                                                 2,
                                                 {
                                                     "types"
-                                                }
-                                            },
-                                            {
-                                                48,
-                                                2,
-                                                {
-                                                    "createMotion"
                                                 }
                                             },
                                             {
@@ -65602,195 +65567,12 @@ local ObjectTree = {
                                                 {
                                                     "createMotion.spec"
                                                 }
-                                            }
-                                        }
-                                    },
-                                    {
-                                        45,
-                                        2,
-                                        {
-                                            "Promise"
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                66,
-                                1,
-                                {
-                                    "lucasmzreal_fastsignal@10.4.0"
-                                },
-                                {
-                                    {
-                                        67,
-                                        2,
-                                        {
-                                            "fastsignal"
-                                        },
-                                        {
-                                            {
-                                                72,
-                                                2,
-                                                {
-                                                    "wally"
-                                                }
                                             },
                                             {
-                                                69,
+                                                48,
                                                 2,
                                                 {
-                                                    "Docs"
-                                                }
-                                            },
-                                            {
-                                                71,
-                                                2,
-                                                {
-                                                    "Readme"
-                                                }
-                                            },
-                                            {
-                                                68,
-                                                2,
-                                                {
-                                                    "Deferred"
-                                                }
-                                            },
-                                            {
-                                                70,
-                                                2,
-                                                {
-                                                    "Immediate"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                73,
-                                1,
-                                {
-                                    "reselim_flipper@2.0.0"
-                                },
-                                {
-                                    {
-                                        74,
-                                        2,
-                                        {
-                                            "flipper"
-                                        },
-                                        {
-                                            {
-                                                88,
-                                                2,
-                                                {
-                                                    "Spring.spec"
-                                                }
-                                            },
-                                            {
-                                                82,
-                                                2,
-                                                {
-                                                    "Linear.spec"
-                                                }
-                                            },
-                                            {
-                                                87,
-                                                2,
-                                                {
-                                                    "Spring"
-                                                }
-                                            },
-                                            {
-                                                90,
-                                                2,
-                                                {
-                                                    "isMotor.spec"
-                                                }
-                                            },
-                                            {
-                                                89,
-                                                2,
-                                                {
-                                                    "isMotor"
-                                                }
-                                            },
-                                            {
-                                                86,
-                                                2,
-                                                {
-                                                    "SingleMotor.spec"
-                                                }
-                                            },
-                                            {
-                                                80,
-                                                2,
-                                                {
-                                                    "Instant.spec"
-                                                }
-                                            },
-                                            {
-                                                75,
-                                                2,
-                                                {
-                                                    "BaseMotor"
-                                                }
-                                            },
-                                            {
-                                                84,
-                                                2,
-                                                {
-                                                    "Signal.spec"
-                                                }
-                                            },
-                                            {
-                                                77,
-                                                2,
-                                                {
-                                                    "GroupMotor"
-                                                }
-                                            },
-                                            {
-                                                83,
-                                                2,
-                                                {
-                                                    "Signal"
-                                                }
-                                            },
-                                            {
-                                                81,
-                                                2,
-                                                {
-                                                    "Linear"
-                                                }
-                                            },
-                                            {
-                                                76,
-                                                2,
-                                                {
-                                                    "BaseMotor.spec"
-                                                }
-                                            },
-                                            {
-                                                85,
-                                                2,
-                                                {
-                                                    "SingleMotor"
-                                                }
-                                            },
-                                            {
-                                                78,
-                                                2,
-                                                {
-                                                    "GroupMotor.spec"
-                                                }
-                                            },
-                                            {
-                                                79,
-                                                2,
-                                                {
-                                                    "Instant"
+                                                    "createMotion"
                                                 }
                                             }
                                         }
@@ -65821,14 +65603,137 @@ local ObjectTree = {
                                         }
                                     }
                                 }
+                            },
+                            {
+                                73,
+                                1,
+                                {
+                                    "reselim_flipper@2.0.0"
+                                },
+                                {
+                                    {
+                                        74,
+                                        2,
+                                        {
+                                            "flipper"
+                                        },
+                                        {
+                                            {
+                                                87,
+                                                2,
+                                                {
+                                                    "Spring"
+                                                }
+                                            },
+                                            {
+                                                90,
+                                                2,
+                                                {
+                                                    "isMotor.spec"
+                                                }
+                                            },
+                                            {
+                                                89,
+                                                2,
+                                                {
+                                                    "isMotor"
+                                                }
+                                            },
+                                            {
+                                                83,
+                                                2,
+                                                {
+                                                    "Signal"
+                                                }
+                                            },
+                                            {
+                                                86,
+                                                2,
+                                                {
+                                                    "SingleMotor.spec"
+                                                }
+                                            },
+                                            {
+                                                81,
+                                                2,
+                                                {
+                                                    "Linear"
+                                                }
+                                            },
+                                            {
+                                                75,
+                                                2,
+                                                {
+                                                    "BaseMotor"
+                                                }
+                                            },
+                                            {
+                                                85,
+                                                2,
+                                                {
+                                                    "SingleMotor"
+                                                }
+                                            },
+                                            {
+                                                88,
+                                                2,
+                                                {
+                                                    "Spring.spec"
+                                                }
+                                            },
+                                            {
+                                                79,
+                                                2,
+                                                {
+                                                    "Instant"
+                                                }
+                                            },
+                                            {
+                                                84,
+                                                2,
+                                                {
+                                                    "Signal.spec"
+                                                }
+                                            },
+                                            {
+                                                80,
+                                                2,
+                                                {
+                                                    "Instant.spec"
+                                                }
+                                            },
+                                            {
+                                                78,
+                                                2,
+                                                {
+                                                    "GroupMotor.spec"
+                                                }
+                                            },
+                                            {
+                                                77,
+                                                2,
+                                                {
+                                                    "GroupMotor"
+                                                }
+                                            },
+                                            {
+                                                82,
+                                                2,
+                                                {
+                                                    "Linear.spec"
+                                                }
+                                            },
+                                            {
+                                                76,
+                                                2,
+                                                {
+                                                    "BaseMotor.spec"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                        }
-                    },
-                    {
-                        37,
-                        2,
-                        {
-                            "Flipper"
                         }
                     },
                     {
@@ -65836,6 +65741,20 @@ local ObjectTree = {
                         2,
                         {
                             "Signal"
+                        }
+                    },
+                    {
+                        38,
+                        2,
+                        {
+                            "Ripple"
+                        }
+                    },
+                    {
+                        37,
+                        2,
+                        {
+                            "Flipper"
                         }
                     }
                 }
@@ -65848,10 +65767,10 @@ local ObjectTree = {
                 },
                 {
                     {
-                        5,
+                        7,
                         2,
                         {
-                            "Dialog"
+                            "Notification"
                         }
                     },
                     {
@@ -65869,38 +65788,10 @@ local ObjectTree = {
                         }
                     },
                     {
-                        12,
-                        2,
-                        {
-                            "Window"
-                        }
-                    },
-                    {
-                        6,
-                        2,
-                        {
-                            "Element"
-                        }
-                    },
-                    {
-                        11,
-                        2,
-                        {
-                            "TitleBar"
-                        }
-                    },
-                    {
                         10,
                         2,
                         {
                             "Textbox"
-                        }
-                    },
-                    {
-                        7,
-                        2,
-                        {
-                            "Notification"
                         }
                     },
                     {
@@ -65911,54 +65802,163 @@ local ObjectTree = {
                         }
                     },
                     {
+                        11,
+                        2,
+                        {
+                            "TitleBar"
+                        }
+                    },
+                    {
+                        12,
+                        2,
+                        {
+                            "Window"
+                        }
+                    },
+                    {
                         4,
                         2,
                         {
                             "Button"
                         }
+                    },
+                    {
+                        5,
+                        2,
+                        {
+                            "Dialog"
+                        }
+                    },
+                    {
+                        6,
+                        2,
+                        {
+                            "Element"
+                        }
                     }
                 }
             },
             {
-                30,
-                2,
+                22,
+                1,
                 {
-                    "Themes"
+                    "Modules"
                 },
                 {
                     {
-                        31,
+                        23,
                         2,
                         {
-                            "Amethyst"
+                            "Acrylic"
+                        },
+                        {
+                            {
+                                26,
+                                2,
+                                {
+                                    "CreateAcrylic"
+                                }
+                            },
+                            {
+                                25,
+                                2,
+                                {
+                                    "AcrylicPaint"
+                                }
+                            },
+                            {
+                                27,
+                                2,
+                                {
+                                    "Utils"
+                                }
+                            },
+                            {
+                                24,
+                                2,
+                                {
+                                    "AcrylicBlur"
+                                }
+                            }
                         }
                     },
                     {
-                        35,
+                        29,
                         2,
                         {
-                            "VSC Red"
+                            "Icons"
                         }
                     },
                     {
-                        34,
+                        28,
                         2,
                         {
-                            "Light"
+                            "Creator"
+                        }
+                    }
+                }
+            },
+            {
+                13,
+                2,
+                {
+                    "Elements"
+                },
+                {
+                    {
+                        21,
+                        2,
+                        {
+                            "Toggle"
                         }
                     },
                     {
-                        32,
+                        18,
                         2,
                         {
-                            "Aqua"
+                            "Keybind"
                         }
                     },
                     {
-                        33,
+                        15,
                         2,
                         {
-                            "Dark"
+                            "Colorpicker"
+                        }
+                    },
+                    {
+                        17,
+                        2,
+                        {
+                            "Input"
+                        }
+                    },
+                    {
+                        20,
+                        2,
+                        {
+                            "Slider"
+                        }
+                    },
+                    {
+                        16,
+                        2,
+                        {
+                            "Dropdown"
+                        }
+                    },
+                    {
+                        14,
+                        2,
+                        {
+                            "Button"
+                        }
+                    },
+                    {
+                        19,
+                        2,
+                        {
+                            "Paragraph"
                         }
                     }
                 }
@@ -66032,23 +66032,23 @@ local LineOffsets = {
     [70] = 64339,
     [71] = 64418,
     [72] = 64448,
-    [74] = 64860,
-    [75] = 64529,
-    [76] = 65199,
-    [77] = 64740,
-    [78] = 64873,
-    [79] = 64722,
-    [80] = 64849,
-    [81] = 64958,
-    [82] = 65240,
-    [83] = 64663,
-    [84] = 64613,
-    [85] = 64460,
-    [86] = 65152,
-    [87] = 65043,
-    [88] = 64995,
-    [89] = 65031,
-    [90] = 64586
+    [74] = 64460,
+    [75] = 64473,
+    [76] = 64530,
+    [77] = 64571,
+    [78] = 64680,
+    [79] = 64765,
+    [80] = 64783,
+    [81] = 64794,
+    [82] = 64831,
+    [83] = 64889,
+    [84] = 64948,
+    [85] = 64998,
+    [86] = 65067,
+    [87] = 65114,
+    [88] = 65223,
+    [89] = 65259,
+    [90] = 65271
 }
 
 -- Misc AOT variable imports
